@@ -4,11 +4,34 @@ export async function GET(
   _req: NextRequest,
   context: { params: { id: string } } | { params: Promise<{ id: string }> }
 ) {
-  const params = await context.params; // handles both sync + async params
-  const { id } = params;
+  try {
+    const params = await context.params;
+    const { id } = params;
 
-  const res = await fetch(`https://api.melee.gg/v1/tournaments/${id}/events`);
-  const data = await res.json();
+    const username = process.env.MELEE_USERNAME!;
+    const password = process.env.MELEE_PASSWORD!;
+    const token = Buffer.from(`${username}:${password}`).toString("base64");
 
-  return Response.json(data);
+    const res = await fetch(`https://api.melee.gg/v1/tournaments/${id}/events`, {
+      headers: {
+        Authorization: `Basic ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      return Response.json(
+        { error: `Upstream error: ${res.status} ${res.statusText}` },
+        { status: 500 }
+      );
+    }
+
+    const data = await res.json();
+    return Response.json(data);
+
+  } catch (err: any) {
+    return Response.json(
+      { error: `Server error: ${err.message}` },
+      { status: 500 }
+    );
+  }
 }
