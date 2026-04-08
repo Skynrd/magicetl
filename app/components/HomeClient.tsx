@@ -11,11 +11,16 @@ type Tournament = {
 
 export default function HomeClient() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [filtered, setFiltered] = useState<Tournament[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+
+  // Date inputs (unapplied until user clicks "Update List")
+  const [startDateInput, setStartDateInput] = useState("");
+  const [endDateInput, setEndDateInput] = useState("");
+
   const [error, setError] = useState<string | null>(null);
 
+  // Load tournaments once
   useEffect(() => {
     fetch("/api/melee/tournaments")
       .then(async (r) => {
@@ -30,6 +35,7 @@ export default function HomeClient() {
           throw new Error("API returned unexpected shape");
         }
         setTournaments(data.Content);
+        setFiltered(data.Content); // initial list
       })
       .catch((err) => {
         console.error("Tournament fetch error:", err);
@@ -37,25 +43,33 @@ export default function HomeClient() {
       });
   }, []);
 
+  // Apply date filter only when user clicks "Update List"
+  const applyFilter = () => {
+    const sd = startDateInput ? new Date(startDateInput) : null;
+    const ed = endDateInput ? new Date(endDateInput) : null;
+
+    const next = tournaments.filter((t) => {
+      const tStart = t.StartDate ? new Date(t.StartDate) : null;
+      const tEnd = t.EndDate ? new Date(t.EndDate) : null;
+
+      if (sd && tEnd && tEnd < sd) return false;
+      if (ed && tStart && tStart > ed) return false;
+
+      return true;
+    });
+
+    setFiltered(next);
+
+    // Remove selected IDs that are no longer in the filtered list
+    setSelectedIds((prev) => prev.filter((id) => next.some((t) => t.ID === id)));
+  };
+
   const handleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const values = Array.from(e.target.selectedOptions).map((o) =>
       Number(o.value)
     );
     setSelectedIds(values);
   };
-
-  const filtered = tournaments.filter((t) => {
-    const sd = startDate ? new Date(startDate) : null;
-    const ed = endDate ? new Date(endDate) : null;
-
-    const tStart = t.StartDate ? new Date(t.StartDate) : null;
-    const tEnd = t.EndDate ? new Date(t.EndDate) : null;
-
-    if (sd && tEnd && tEnd < sd) return false;
-    if (ed && tStart && tStart > ed) return false;
-
-    return true;
-  });
 
   if (error) {
     return (
@@ -70,25 +84,45 @@ export default function HomeClient() {
     <div style={{ padding: 20, maxWidth: 600 }}>
       <h1>Melee.gg Tournament Browser</h1>
 
+      {/* Date Range */}
       <div style={{ marginTop: 20 }}>
         <label>Start Date (optional)</label>
         <input
           type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
+          value={startDateInput}
+          onChange={(e) => setStartDateInput(e.target.value)}
           style={{ display: "block", marginTop: 4, marginBottom: 12 }}
         />
 
         <label>End Date (optional)</label>
         <input
           type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
+          value={endDateInput}
+          onChange={(e) => setEndDateInput(e.target.value)}
           style={{ display: "block", marginTop: 4, marginBottom: 12 }}
         />
+
+        <button
+          onClick={applyFilter}
+          style={{
+            marginTop: 8,
+            padding: "8px 12px",
+            background: "#333",
+            color: "#eee",
+            border: "1px solid #555",
+            borderRadius: 4,
+            cursor: "pointer",
+          }}
+        >
+          Update List
+        </button>
       </div>
 
-      <label>Select Tournaments (multi‑select)</label>
+      {/* Multi-select */}
+      <label style={{ marginTop: 20, display: "block" }}>
+        Select Tournaments (multi-select)
+      </label>
+
       <select
         multiple
         size={12}
@@ -108,6 +142,7 @@ export default function HomeClient() {
         ))}
       </select>
 
+      {/* Selected preview */}
       {selectedIds.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h2>Selected Tournaments</h2>
