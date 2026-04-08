@@ -17,98 +17,101 @@ export default function HomeClient() {
       body: form,
     });
 
-      const data = await res.json();
-      setRows(data.transformed || []);
-    }
+    const data = await res.json();
+    setRows(data.transformed || []);
+  }
 
-    return (
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        paddingTop: "60px",
+        background: "var(--background)",
+        color: "var(--foreground)",
+        fontFamily: "sans-serif",
+      }}
+    >
       <div
         style={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "flex-start",
-          paddingTop: "60px",
-          background: "#f7f7f7",
-          fontFamily: "sans-serif",
+          width: "600px",
+          background: "rgba(255,255,255,0.05)", // subtle card on dark mode
+          padding: "30px",
+          borderRadius: "12px",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          border: "1px solid rgba(255,255,255,0.1)",
         }}
       >
-        <div
+        <h1 style={{ marginBottom: "20px", fontSize: "24px" }}>
+          CSV ETL Tool
+        </h1>
+
+        <label
           style={{
-            width: "600px",
-            background: "white",
-            padding: "30px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+            display: "inline-block",
+            padding: "10px 16px",
+            background: "#0070f3",
+            color: "white",
+            borderRadius: "6px",
+            cursor: "pointer",
+            marginBottom: "20px",
           }}
         >
-          <h1 style={{ marginBottom: "20px", fontSize: "24px" }}>
-            CSV ETL Tool
-          </h1>
+          Upload CSV
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleUpload}
+            style={{ display: "none" }}
+          />
+        </label>
 
-          <label
+        {!rows && (
+          <p style={{ color: "var(--foreground)" }}>
+            Upload a CSV file to preview and transform it.
+          </p>
+        )}
+
+        {rows && rows.length > 0 && (
+          <div
             style={{
-              display: "inline-block",
-              padding: "10px 16px",
-              background: "#0070f3",
-              color: "white",
-              borderRadius: "6px",
-              cursor: "pointer",
-              marginBottom: "20px",
+              overflowX: "auto",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "8px",
+              marginTop: "20px",
             }}
           >
-            Upload CSV
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleUpload}
-              style={{ display: "none" }}
-            />
-          </label>
-
-          {!rows && (
-            <p style={{ color: "#666" }}>
-              Upload a CSV file to preview and transform it.
-            </p>
-          )}
-
-          {rows && rows.length > 0 && (
-            <div
+            <table
               style={{
-                overflowX: "auto",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                marginTop: "20px",
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "14px",
+                color: "var(--foreground)",
               }}
             >
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: "14px",
-                }}
-              >
-                <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={i}>
-                      {row.map((col, j) => (
-                        <td
-                          key={j}
-                          style={{
-                            border: "1px solid #eee",
-                            padding: "8px 10px",
-                          }}
-                        >
-                          {col}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr key={i}>
+                    {row.map((col, j) => (
+                      <td
+                        key={j}
+                        style={{
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          padding: "8px 10px",
+                        }}
+                      >
+                        {col}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-    );
+    </div>
+  );
 }
