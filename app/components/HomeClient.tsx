@@ -121,28 +121,44 @@ export default function HomeClient() {
       )}
 
       {/* Multi-select */}
-      <label style={{ marginTop: 20, display: "block" }}>
-        Select Tournaments (multi-select)
-      </label>
+        <label style={{ marginTop: 20, display: "block", fontWeight: "bold" }}>
+        Select Tournaments
+        </label>
 
-      <select
-        multiple
-        size={12}
-        value={selectedIds.map(String)}
-        onChange={handleSelect}
+        <div
         style={{
-          width: "100%",
-          marginTop: 4,
-          marginBottom: 20,
-          padding: 8,
+            maxHeight: "400px",
+            overflowY: "auto",
+            border: "1px solid #444",
+            padding: "10px",
+            borderRadius: "6px",
+            marginTop: "8px",
         }}
-      >
-        {tournaments.map((t) => (
-          <option key={t.ID} value={t.ID}>
-            {t.Name}
-          </option>
-        ))}
-      </select>
+        >
+        {tournaments.map((t) => {
+            const checked = selectedIds.includes(t.ID);
+
+            return (
+            <div key={t.ID} style={{ marginBottom: "6px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                    setSelectedIds((prev) =>
+                        checked
+                        ? prev.filter((id) => id !== t.ID) // remove
+                        : [...prev, t.ID] // add
+                    );
+                    }}
+                />
+                {t.Name}
+                </label>
+            </div>
+            );
+        })}
+        </div>
+
 
       {selectedIds.length > 0 && (
         <div style={{ marginTop: 20 }}>
