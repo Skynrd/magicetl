@@ -2,72 +2,52 @@
 
 import { useEffect, useState } from "react";
 
-export default function HomeClient() {
-  const [tournaments, setTournaments] = useState<any[]>([]);
-  const [selectedTournament, setSelectedTournament] = useState<string>("");
-  const [events, setEvents] = useState<any[]>([]);
+type Tournament = {
+  ID: number;
+  Name: string;
+};
 
-  // Load tournaments on page load
+export default function HomeClient() {
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    async function loadTournaments() {
-      const res = await fetch("/api/melee/tournaments");
-      const data = await res.json();
-      setTournaments(data);
-    }
-    loadTournaments();
+    fetch("/api/melee/tournaments")
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.error || `Request failed: ${r.status}`);
+        }
+        return r.json();
+      })
+      .then((data: Tournament[]) => setTournaments(data))
+      .catch((err) => {
+        console.error("Tournament fetch error:", err);
+        setError(err.message);
+      });
   }, []);
 
-  // Load events when a tournament is selected
-  useEffect(() => {
-    if (!selectedTournament) return;
-
-    async function loadEvents() {
-      const res = await fetch(`/api/melee/tournaments/${selectedTournament}/events`);
-      const data = await res.json();
-      setEvents(data);
-    }
-
-    loadEvents();
-  }, [selectedTournament]);
+  if (error) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>Error loading tournaments</h2>
+        <pre>{error}</pre>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: "40px", color: "var(--foreground)" }}>
-      <h1 style={{ marginBottom: "20px" }}>Melee.gg Tournament Browser</h1>
+    <div style={{ padding: 20 }}>
+      <h1>Melee.gg Tournament Browser</h1>
 
-      {/* Tournament Dropdown */}
-      <select
-        value={selectedTournament}
-        onChange={(e) => setSelectedTournament(e.target.value)}
-        style={{
-          padding: "10px",
-          borderRadius: "6px",
-          background: "var(--background)",
-          color: "var(--foreground)",
-          border: "1px solid rgba(255,255,255,0.2)",
-          marginBottom: "20px",
-        }}
-      >
+      <select>
         <option value="">Select a tournament...</option>
         {tournaments.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
+          <option key={t.ID} value={t.ID}>
+            {t.Name}
           </option>
         ))}
       </select>
-
-      {/* Events List */}
-      {events.length > 0 && (
-        <div style={{ marginTop: "20px" }}>
-          <h2>Events</h2>
-          <ul>
-            {events.map((ev) => (
-              <li key={ev.id}>
-                <strong>{ev.name}</strong> — {ev.format} — {ev.numPlayers} players
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
