@@ -1,117 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function HomeClient() {
-  const [rows, setRows] = useState<string[][] | null>(null);
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [selectedTournament, setSelectedTournament] = useState<string>("");
+  const [events, setEvents] = useState<any[]>([]);
 
-  async function handleUpload(e: any) {
-    const file = e.target.files[0];
-    if (!file) return;
+  // Load tournaments on page load
+  useEffect(() => {
+    async function loadTournaments() {
+      const res = await fetch("/api/melee/tournaments");
+      const data = await res.json();
+      setTournaments(data);
+    }
+    loadTournaments();
+  }, []);
 
-    const form = new FormData();
-    form.append("file", file);
+  // Load events when a tournament is selected
+  useEffect(() => {
+    if (!selectedTournament) return;
 
-    const res = await fetch("/api/etl", {
-      method: "POST",
-      body: form,
-    });
+    async function loadEvents() {
+      const res = await fetch(`/api/melee/tournaments/${selectedTournament}/events`);
+      const data = await res.json();
+      setEvents(data);
+    }
 
-    const data = await res.json();
-    setRows(data.transformed || []);
-  }
+    loadEvents();
+  }, [selectedTournament]);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "flex-start",
-        paddingTop: "60px",
-        background: "var(--background)",
-        color: "var(--foreground)",
-        fontFamily: "sans-serif",
-      }}
-    >
-      <div
+    <div style={{ padding: "40px", color: "var(--foreground)" }}>
+      <h1 style={{ marginBottom: "20px" }}>Melee.gg Tournament Browser</h1>
+
+      {/* Tournament Dropdown */}
+      <select
+        value={selectedTournament}
+        onChange={(e) => setSelectedTournament(e.target.value)}
         style={{
-          width: "600px",
-          background: "rgba(255,255,255,0.05)", // subtle card on dark mode
-          padding: "30px",
-          borderRadius: "12px",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          padding: "10px",
+          borderRadius: "6px",
+          background: "var(--background)",
+          color: "var(--foreground)",
+          border: "1px solid rgba(255,255,255,0.2)",
+          marginBottom: "20px",
         }}
       >
-        <h1 style={{ marginBottom: "20px", fontSize: "24px" }}>
-          CSV ETL Tool
-        </h1>
+        <option value="">Select a tournament...</option>
+        {tournaments.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </select>
 
-        <label
-          style={{
-            display: "inline-block",
-            padding: "10px 16px",
-            background: "#0070f3",
-            color: "white",
-            borderRadius: "6px",
-            cursor: "pointer",
-            marginBottom: "20px",
-          }}
-        >
-          Upload CSV
-          <input
-            type="file"
-            accept=".csv"
-            onChange={handleUpload}
-            style={{ display: "none" }}
-          />
-        </label>
-
-        {!rows && (
-          <p style={{ color: "var(--foreground)" }}>
-            Upload a CSV file to preview and transform it.
-          </p>
-        )}
-
-        {rows && rows.length > 0 && (
-          <div
-            style={{
-              overflowX: "auto",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "8px",
-              marginTop: "20px",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "14px",
-                color: "var(--foreground)",
-              }}
-            >
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr key={i}>
-                    {row.map((col, j) => (
-                      <td
-                        key={j}
-                        style={{
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          padding: "8px 10px",
-                        }}
-                      >
-                        {col}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Events List */}
+      {events.length > 0 && (
+        <div style={{ marginTop: "20px" }}>
+          <h2>Events</h2>
+          <ul>
+            {events.map((ev) => (
+              <li key={ev.id}>
+                <strong>{ev.name}</strong> — {ev.format} — {ev.numPlayers} players
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
