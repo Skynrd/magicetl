@@ -20,7 +20,12 @@ export default function HomeClient() {
         }
         return r.json();
       })
-      .then((data: Tournament[]) => setTournaments(data))
+      .then((data) => {
+        if (!Array.isArray(data.Content)) {
+          throw new Error("API returned unexpected shape");
+        }
+        setTournaments(data.Content);
+      })
       .catch((err) => {
         console.error("Tournament fetch error:", err);
         setError(err.message);
