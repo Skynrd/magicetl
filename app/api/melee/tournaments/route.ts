@@ -6,15 +6,17 @@ export async function GET(_req: NextRequest) {
     const password = process.env.MELEE_PASSWORD!;
     const token = Buffer.from(`${username}:${password}`).toString("base64");
 
-    const res = await fetch("https://api.melee.gg/v1/tournaments", {
+    const res = await fetch("https://melee.gg/api/tournament/list", {
       headers: {
         Authorization: `Basic ${token}`,
-      },
+        "User-Agent": "magic-etl/1.0"
+      }
     });
 
     if (!res.ok) {
+      const text = await res.text();
       return Response.json(
-        { error: `Upstream error: ${res.status} ${res.statusText}` },
+        { error: `Upstream error: ${res.status} ${res.statusText}`, body: text },
         { status: 500 }
       );
     }
