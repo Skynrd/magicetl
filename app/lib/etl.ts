@@ -7,9 +7,8 @@ export async function extractFromSource() {
   return res.json();
 }
 
-export function transformData(raw: any) {
-  // Your CSV → rows → transformed logic goes here
-  return raw.map(row => ({
+export function transformData(raw: string[][]) {
+  return raw.map((row: string[]) => ({
     id: row[0],
     amount: Number(row[1]),
     date: new Date(row[2]),
