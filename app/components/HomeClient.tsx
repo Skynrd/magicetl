@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 type Tournament = {
   ID: number;
   Name: string;
-  StartDate?: string;
-  EndDate?: string;
+  LastPairDateTime?: string;
 };
 
 export default function HomeClient() {
@@ -14,13 +13,11 @@ export default function HomeClient() {
   const [filtered, setFiltered] = useState<Tournament[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  // Date inputs (unapplied until user clicks "Update List")
   const [startDateInput, setStartDateInput] = useState("");
   const [endDateInput, setEndDateInput] = useState("");
 
   const [error, setError] = useState<string | null>(null);
 
-  // Load tournaments once
   useEffect(() => {
     fetch("/api/melee/tournaments")
       .then(async (r) => {
@@ -34,8 +31,11 @@ export default function HomeClient() {
         if (!Array.isArray(data.Content)) {
           throw new Error("API returned unexpected shape");
         }
+
+        console.log("Sample tournament:", data.Content[0]);
+
         setTournaments(data.Content);
-        setFiltered(data.Content); // initial list
+        setFiltered(data.Content);
       })
       .catch((err) => {
         console.error("Tournament fetch error:", err);
@@ -43,24 +43,23 @@ export default function HomeClient() {
       });
   }, []);
 
-  // Apply date filter only when user clicks "Update List"
   const applyFilter = () => {
     const sd = startDateInput ? new Date(startDateInput) : null;
     const ed = endDateInput ? new Date(endDateInput) : null;
 
     const next = tournaments.filter((t) => {
-      const tStart = t.StartDate ? new Date(t.StartDate) : null;
-      const tEnd = t.EndDate ? new Date(t.EndDate) : null;
+      const tDate = t.LastPairDateTime ? new Date(t.LastPairDateTime) : null;
+      if (!tDate) return false;
 
-      if (sd && tEnd && tEnd < sd) return false;
-      if (ed && tStart && tStart > ed) return false;
+      if (sd && tDate < sd) return false;
+      if (ed && tDate > ed) return false;
 
       return true;
     });
 
     setFiltered(next);
 
-    // Remove selected IDs that are no longer in the filtered list
+    // Remove selected IDs that no longer exist in filtered list
     setSelectedIds((prev) => prev.filter((id) => next.some((t) => t.ID === id)));
   };
 
@@ -84,7 +83,6 @@ export default function HomeClient() {
     <div style={{ padding: 20, maxWidth: 600 }}>
       <h1>Melee.gg Tournament Browser</h1>
 
-      {/* Date Range */}
       <div style={{ marginTop: 20 }}>
         <label>Start Date (optional)</label>
         <input
@@ -118,7 +116,6 @@ export default function HomeClient() {
         </button>
       </div>
 
-      {/* Multi-select */}
       <label style={{ marginTop: 20, display: "block" }}>
         Select Tournaments (multi-select)
       </label>
@@ -142,7 +139,6 @@ export default function HomeClient() {
         ))}
       </select>
 
-      {/* Selected preview */}
       {selectedIds.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h2>Selected Tournaments</h2>
