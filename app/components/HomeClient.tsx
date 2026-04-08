@@ -16,9 +16,10 @@ export default function HomeClient() {
   const [startDateInput, setStartDateInput] = useState("");
   const [endDateInput, setEndDateInput] = useState("");
 
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Load full list on first render
+  // Load full list on mount
   useEffect(() => {
     fetchTournaments();
   }, []);
@@ -68,11 +69,19 @@ export default function HomeClient() {
     fetchTournaments(start, end);
   };
 
-  const handleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const values = Array.from(e.target.selectedOptions).map((o) =>
-      Number(o.value)
+  const toggleTournament = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
-    setSelectedIds(values);
+  };
+
+  const selectAll = () => {
+    const allIds = tournaments.map((t) => t.ID);
+    setSelectedIds(allIds);
+  };
+
+  const deselectAll = () => {
+    setSelectedIds([]);
   };
 
   return (
@@ -120,46 +129,99 @@ export default function HomeClient() {
         </p>
       )}
 
-      {/* Multi-select */}
-        <label style={{ marginTop: 20, display: "block", fontWeight: "bold" }}>
+      {/* Search + Select All / Deselect All */}
+      <label style={{ marginTop: 20, display: "block", fontWeight: "bold" }}>
         Select Tournaments
-        </label>
+      </label>
 
-        <div
+      <input
+        type="text"
+        placeholder="Search tournaments..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
         style={{
-            maxHeight: "400px",
-            overflowY: "auto",
-            border: "1px solid #444",
-            padding: "10px",
-            borderRadius: "6px",
-            marginTop: "8px",
+          width: "100%",
+          padding: "8px",
+          marginTop: "8px",
+          marginBottom: "12px",
+          borderRadius: "4px",
+          border: "1px solid #444",
+          background: "#1e1e1e",
+          color: "#eee",
         }}
+      />
+
+      <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+        <button
+          onClick={selectAll}
+          style={{
+            padding: "6px 10px",
+            background: "#333",
+            color: "#eee",
+            border: "1px solid #555",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
         >
-        {tournaments.map((t) => {
+          Select All
+        </button>
+
+        <button
+          onClick={deselectAll}
+          style={{
+            padding: "6px 10px",
+            background: "#333",
+            color: "#eee",
+            border: "1px solid #555",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Deselect All
+        </button>
+      </div>
+
+      {/* Checkbox list */}
+      <div
+        style={{
+          maxHeight: "400px",
+          overflowY: "auto",
+          border: "1px solid #444",
+          padding: "10px",
+          borderRadius: "6px",
+          marginTop: "8px",
+        }}
+      >
+        {tournaments
+          .filter((t) =>
+            t.Name.toLowerCase().includes(search.toLowerCase())
+          )
+          .map((t) => {
             const checked = selectedIds.includes(t.ID);
 
             return (
-            <div key={t.ID} style={{ marginBottom: "6px" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <input
+              <div key={t.ID} style={{ marginBottom: "6px" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => {
-                    setSelectedIds((prev) =>
-                        checked
-                        ? prev.filter((id) => id !== t.ID) // remove
-                        : [...prev, t.ID] // add
-                    );
-                    }}
-                />
-                {t.Name}
+                    onChange={() => toggleTournament(t.ID)}
+                  />
+                  {t.Name}
                 </label>
-            </div>
+              </div>
             );
-        })}
-        </div>
+          })}
+      </div>
 
-
+      {/* Selected preview */}
       {selectedIds.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h2>Selected Tournaments</h2>
