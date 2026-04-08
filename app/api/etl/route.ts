@@ -1,17 +1,18 @@
-import { NextResponse } from "next/server";
+import { extractFromSource, transformData, loadToDestination } from "@/app/lib/etl";
 
 export async function POST(req: Request) {
-  const formData = await req.formData();
-  const file = formData.get("file") as File;
+  try {
+    // 1. Extract
+    const raw = await extractFromSource();
 
-  if (!file) {
-    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    // 2. Transform
+    const transformed = transformData(raw);
+
+    // 3. Load
+    const result = await loadToDestination(transformed);
+
+    return Response.json({ ok: true, transformed, result });
+  } catch (err: any) {
+    return Response.json({ ok: false, error: err.message }, { status: 500 });
   }
-
-  const text = await file.text();
-  const rows = text.split("\n").map(r => r.split(","));
-
-  const transformed = rows.map(r => r.map(col => col.trim()));
-
-  return NextResponse.json({ transformed });
 }
