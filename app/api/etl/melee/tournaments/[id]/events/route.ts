@@ -2,9 +2,10 @@ import { NextRequest } from "next/server";
 
 export async function GET(
   _req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: { id: string } } | { params: Promise<{ id: string }> }
 ) {
-  const { id } = await context.params; // works whether it's a Promise or not
+  const params = await context.params; // works for both cases
+  const { id } = params;
 
   const res = await fetch(`https://api.melee.gg/v1/tournaments/${id}/events`);
   const data = await res.json();
