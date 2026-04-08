@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const username = process.env.MELEE_USERNAME;
     const password = process.env.MELEE_PASSWORD;
@@ -14,16 +14,33 @@ export async function GET() {
 
     const token = Buffer.from(`${username}:${password}`).toString("base64");
 
-    const url =
-      "https://melee.gg/api/tournament/list?page=1&pageSize=5000&ignoreCache=true";
+    // Read query params from the request
+    const { searchParams } = new URL(req.url);
+
+    const startDateFrom = searchParams.get("startDateFrom");
+    const startDateTo = searchParams.get("startDateTo");
+
+    // Build the URL exactly like Swagger
+    const base = "https://melee.gg/api/tournament/list";
+
+    const params = new URLSearchParams();
+
+    if (startDateFrom) params.set("startDateFrom", startDateFrom);
+    if (startDateTo) params.set("startDateTo", startDateTo);
+
+    // Swagger-style nested variables
+    params.set("variables.pageSize", "250");
+    params.set("variables.ignoreCache", "true");
+
+    const url = `${base}?${params.toString()}`;
 
     const res = await fetch(url, {
       headers: {
         Authorization: `Basic ${token}`,
-        "User-Agent": "magic-etl/1.0",
         Accept: "application/json",
+        "User-Agent": "magic-etl/1.0",
       },
-      cache: "no-store", // Prevents Vercel/Next.js caching
+      cache: "no-store",
     });
 
     if (!res.ok) {
@@ -36,7 +53,6 @@ export async function GET() {
 
     const data = await res.json();
 
-    // Ensure Content exists and is an array
     if (!data || !Array.isArray(data.Content)) {
       return NextResponse.json(
         { error: "Unexpected API response shape", data },

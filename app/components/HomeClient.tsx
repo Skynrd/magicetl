@@ -10,57 +10,62 @@ type Tournament = {
 
 export default function HomeClient() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [filtered, setFiltered] = useState<Tournament[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const [startDateInput, setStartDateInput] = useState("");
   const [endDateInput, setEndDateInput] = useState("");
 
   const [error, setError] = useState<string | null>(null);
 
+  // Load full list on first render
   useEffect(() => {
-    fetch("/api/melee/tournaments")
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.error || `Request failed: ${r.status}`);
-        }
-        return r.json();
-      })
-      .then((data) => {
-        if (!Array.isArray(data.Content)) {
-          throw new Error("API returned unexpected shape");
-        }
-
-        console.log("Sample tournament:", data.Content[0]);
-
-        setTournaments(data.Content);
-        setFiltered(data.Content);
-      })
-      .catch((err) => {
-        console.error("Tournament fetch error:", err);
-        setError(err.message);
-      });
+    fetchTournaments();
   }, []);
 
+  const fetchTournaments = async (start?: string, end?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+
+      if (start) params.set("startDateFrom", start);
+      if (end) params.set("startDateTo", end);
+
+      const url = `/api/melee/tournaments?${params.toString()}`;
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`API error: ${res.status} — ${body}`);
+      }
+
+      const data = await res.json();
+
+      if (!Array.isArray(data.Content)) {
+        throw new Error("Unexpected API response shape");
+      }
+
+      setTournaments(data.Content);
+
+      // Remove selected IDs that no longer exist
+      setSelectedIds((prev) =>
+        prev.filter((id) => data.Content.some((t: Tournament) => t.ID === id))
+      );
+    } catch (err: any) {
+      console.error("Tournament fetch error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const applyFilter = () => {
-    const sd = startDateInput ? new Date(startDateInput) : null;
-    const ed = endDateInput ? new Date(endDateInput) : null;
+    const start = startDateInput ? `${startDateInput}T00:00:00Z` : undefined;
+    const end = endDateInput ? `${endDateInput}T00:00:00Z` : undefined;
 
-    const next = tournaments.filter((t) => {
-      const tDate = t.LastPairDateTime ? new Date(t.LastPairDateTime) : null;
-      if (!tDate) return false;
-
-      if (sd && tDate < sd) return false;
-      if (ed && tDate > ed) return false;
-
-      return true;
-    });
-
-    setFiltered(next);
-
-    // Remove selected IDs that no longer exist in filtered list
-    setSelectedIds((prev) => prev.filter((id) => next.some((t) => t.ID === id)));
+    fetchTournaments(start, end);
   };
 
   const handleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -70,19 +75,11 @@ export default function HomeClient() {
     setSelectedIds(values);
   };
 
-  if (error) {
-    return (
-      <div style={{ padding: 20 }}>
-        <h2>Error loading tournaments</h2>
-        <pre>{error}</pre>
-      </div>
-    );
-  }
-
   return (
     <div style={{ padding: 20, maxWidth: 600 }}>
       <h1>Melee.gg Tournament Browser</h1>
 
+      {/* Date Range */}
       <div style={{ marginTop: 20 }}>
         <label>Start Date (optional)</label>
         <input
@@ -116,6 +113,14 @@ export default function HomeClient() {
         </button>
       </div>
 
+      {loading && <p style={{ marginTop: 20 }}>Loading tournaments…</p>}
+      {error && (
+        <p style={{ marginTop: 20, color: "red" }}>
+          Error loading tournaments: {error}
+        </p>
+      )}
+
+      {/* Multi-select */}
       <label style={{ marginTop: 20, display: "block" }}>
         Select Tournaments (multi-select)
       </label>
@@ -132,7 +137,7 @@ export default function HomeClient() {
           padding: 8,
         }}
       >
-        {filtered.map((t) => (
+        {tournaments.map((t) => (
           <option key={t.ID} value={t.ID}>
             {t.Name}
           </option>
