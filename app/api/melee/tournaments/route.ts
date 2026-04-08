@@ -6,7 +6,7 @@ export async function GET(_req: NextRequest) {
     const password = process.env.MELEE_PASSWORD!;
     const token = Buffer.from(`${username}:${password}`).toString("base64");
 
-    const res = await fetch("https://melee.gg/api/tournament/list", {
+    const res = await fetch("https://melee.gg/api/tournament/list?page=1&pageSize=5000", {
       headers: {
         Authorization: `Basic ${token}`,
         "User-Agent": "magic-etl/1.0"
