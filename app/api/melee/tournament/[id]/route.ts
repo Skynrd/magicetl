@@ -4,8 +4,11 @@ const MELEE_API = "https://melee.gg/api";
 const MELEE_USERNAME = process.env.MELEE_USERNAME;
 const MELEE_PASSWORD = process.env.MELEE_PASSWORD;
 
-export async function GET(_req: Request, context: any) {
-  const id = context?.params?.id;
+export async function GET(req: Request) {
+  // Derive ID from URL path instead of relying on context.params
+  const url = new URL(req.url);
+  const segments = url.pathname.split("/").filter(Boolean);
+  const id = segments[segments.length - 1]; // last segment after /tournament/
 
   if (!id) {
     return NextResponse.json(
