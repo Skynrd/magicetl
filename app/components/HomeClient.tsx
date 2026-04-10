@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Tournament = {
   ID: number;
@@ -9,6 +10,8 @@ type Tournament = {
 };
 
 export default function HomeClient() {
+  const router = useRouter();
+
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,7 +33,6 @@ export default function HomeClient() {
       setError(null);
 
       const params = new URLSearchParams();
-
       if (start) params.set("startDateFrom", start);
       if (end) params.set("startDateTo", end);
 
@@ -43,7 +45,6 @@ export default function HomeClient() {
       }
 
       const data = await res.json();
-
       if (!Array.isArray(data.Content)) {
         throw new Error("Unexpected API response shape");
       }
@@ -65,7 +66,6 @@ export default function HomeClient() {
   const applyFilter = () => {
     const start = startDateInput ? `${startDateInput}T00:00:00Z` : undefined;
     const end = endDateInput ? `${endDateInput}T00:00:00Z` : undefined;
-
     fetchTournaments(start, end);
   };
 
@@ -82,6 +82,39 @@ export default function HomeClient() {
 
   const deselectAll = () => {
     setSelectedIds([]);
+  };
+
+  // ⭐ NEW: Validate button handler
+  const validateSelected = async () => {
+    if (selectedIds.length === 0) return;
+
+    setLoading(true);
+
+    try {
+      const results: any[] = [];
+
+      for (const id of selectedIds) {
+        const res = await fetch(`https://melee.gg/api/tournament/${id}`, {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        const json = await res.json();
+        results.push({ id, data: json });
+      }
+
+      // Store results in sessionStorage for the /validate page
+      sessionStorage.setItem("validationResults", JSON.stringify(results));
+
+      // Navigate to validation page
+      router.push("/validate");
+    } catch (err) {
+      console.error("Validation error:", err);
+      alert("Error validating tournaments. Check console.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -122,7 +155,7 @@ export default function HomeClient() {
         </button>
       </div>
 
-      {loading && <p style={{ marginTop: 20 }}>Loading tournaments…</p>}
+      {loading && <p style={{ marginTop: 20 }}>Loading…</p>}
       {error && (
         <p style={{ marginTop: 20, color: "red" }}>
           Error loading tournaments: {error}
@@ -221,18 +254,22 @@ export default function HomeClient() {
           })}
       </div>
 
-      {/* Selected preview */}
-      {selectedIds.length > 0 && (
-        <div style={{ marginTop: 20 }}>
-          <h2>Selected Tournaments</h2>
-          <ul>
-            {selectedIds.map((id) => {
-              const t = tournaments.find((x) => x.ID === id);
-              return <li key={id}>{t?.Name}</li>;
-            })}
-          </ul>
-        </div>
-      )}
+      {/* Validate Button */}
+      <button
+        onClick={validateSelected}
+        disabled={selectedIds.length === 0}
+        style={{
+          marginTop: 20,
+          padding: "10px 14px",
+          background: selectedIds.length === 0 ? "#555" : "#0066ff",
+          color: "#fff",
+          border: "none",
+          borderRadius: 4,
+          cursor: selectedIds.length === 0 ? "not-allowed" : "pointer",
+        }}
+      >
+        Validate Selected Tournaments
+      </button>
     </div>
   );
 }
