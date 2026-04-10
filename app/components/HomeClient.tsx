@@ -1,327 +1,247 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
-// -----------------------------
-// Types
-// -----------------------------
-export type Tournament = {
-  ID: number;
-  Name: string;
-  LastPairDateTime?: string;
-  FormatName?: string;
-  StartDate?: string;
-};
-
-export type Player = {
-  WizardsAccountEmail?: string | null;
-  Email?: string | null;
-};
-
-export type ValidationResult = {
-  id: number;
-  metadata: Tournament | null;
-  playerEmails: string[];
-};
-
-// -----------------------------
-// Component
-// -----------------------------
 export default function HomeClient() {
-  const router = useRouter();
-
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [tournaments, setTournaments] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [search, setSearch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [startDateInput, setStartDateInput] = useState<string>("");
-  const [endDateInput, setEndDateInput] = useState<string>("");
+  // -----------------------------
+  // Load tournaments from API
+  // -----------------------------
+  async function loadTournaments() {
+    setLoading(true);
 
-  const [search, setSearch] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
+    const params = new URLSearchParams();
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
 
-  // Load full list on mount
+    const res = await fetch(`/api/melee/list?${params.toString()}`);
+    const json = await res.json();
+
+    setTournaments(json || []);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    fetchTournaments();
+    loadTournaments();
   }, []);
-
-  // -----------------------------
-  // Fetch tournaments
-  // -----------------------------
-  const fetchTournaments = async (start?: string, end?: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const params = new URLSearchParams();
-      if (start) params.set("startDateFrom", start);
-      if (end) params.set("startDateTo", end);
-
-      const url = `/api/melee/tournaments?${params.toString()}`;
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`API error: ${res.status} — ${body}`);
-      }
-
-      const data: { Content: Tournament[] } = await res.json();
-
-      if (!Array.isArray(data.Content)) {
-        throw new Error("Unexpected API response shape");
-      }
-
-      // Filter out malformed tournaments
-      const cleaned: Tournament[] = data.Content.filter(
-        (t: Tournament) => typeof t.ID === "number" && t.ID > 0
-      );
-
-      setTournaments(cleaned);
-
-      // Clean up selected IDs
-      setSelectedIds((prev) =>
-        prev.filter((id) => cleaned.some((t) => t.ID === id))
-      );
-    } catch (err: any) {
-      console.error("Tournament fetch error:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // -----------------------------
-  // Apply date filter
-  // -----------------------------
-  const applyFilter = () => {
-    const start = startDateInput ? `${startDateInput}T00:00:00Z` : undefined;
-    const end = endDateInput ? `${endDateInput}T00:00:00Z` : undefined;
-    fetchTournaments(start, end);
-  };
 
   // -----------------------------
   // Selection logic
   // -----------------------------
-  const toggleTournament = (id: number) => {
-    if (typeof id !== "number") return;
+  function toggleSelect(id: number) {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
-  };
+  }
 
-  const selectAll = () => {
-    const allIds = tournaments.map((t) => t.ID);
-    setSelectedIds(allIds);
-  };
+  function selectAll() {
+    setSelectedIds(tournaments.map((t) => t.ID));
+  }
 
-  const deselectAll = () => {
+  function deselectAll() {
     setSelectedIds([]);
-  };
+  }
 
   // -----------------------------
-  // Validation logic
+  // Validate Selected
   // -----------------------------
-  const validateSelected = async () => {
-    if (selectedIds.length === 0) return;
+  async function validateSelected() {
+    if (selectedIds.length === 0) {
+      alert("No tournaments selected.");
+      return;
+    }
 
     setLoading(true);
 
-    try {
-      const results: ValidationResult[] = [];
+    const results = [];
 
-      for (const id of selectedIds) {
-        if (typeof id !== "number") continue;
+    for (const id of selectedIds) {
+      const res = await fetch(`/api/melee/tournament/${id}`);
+      const metadata = await res.json();
 
-        // Tournament metadata
-        const metaRes = await fetch(`/api/melee/tournament/${id}`, {
-          headers: { Accept: "application/json" },
-        });
-        const metadata: Tournament | null = await metaRes.json();
+      const playersRes = await fetch(`/api/melee/player-list/${id}`);
+      const playersJson = await playersRes.json();
 
-        // Player list
-        const playersRes = await fetch(`/api/melee/player-list/${id}`, {
-          headers: { Accept: "application/json" },
-        });
-        const playersJson: { Content?: Player[] } = await playersRes.json();
+      const playerEmails =
+        playersJson?.Players?.map((p: any) => p.EmailAddress).filter(Boolean) ||
+        [];
 
-        const playerEmails: string[] = (playersJson.Content || [])
-          .map((p: Player) => p.WizardsAccountEmail || p.Email || null)
-          .filter((email): email is string => Boolean(email));
-
-        results.push({
-          id,
-          metadata,
-          playerEmails,
-        });
-      }
-
-      sessionStorage.setItem("validationResults", JSON.stringify(results));
-      router.push("/validate");
-    } catch (err) {
-      console.error("Validation error:", err);
-      alert("Error validating tournaments. Check console.");
-    } finally {
-      setLoading(false);
+      results.push({
+        id,
+        metadata,
+        playerEmails,
+      });
     }
-  };
+
+    sessionStorage.setItem("validationResults", JSON.stringify(results));
+    setLoading(false);
+
+    alert("Validation complete. Go to /validate to view results.");
+  }
 
   // -----------------------------
-  // UI
+  // Upload Selected to EventLink
+  // -----------------------------
+  async function uploadSelected() {
+    if (selectedIds.length === 0) {
+      alert("No tournaments selected.");
+      return;
+    }
+
+    const raw = sessionStorage.getItem("validationResults");
+    if (!raw) {
+      alert("Please validate tournaments first.");
+      return;
+    }
+
+    const results = JSON.parse(raw);
+
+    // Load EventLink auth info
+    const authRes = await fetch("/api/eventlink/check-auth");
+    const authJson = await authRes.json();
+
+    if (!authJson.authenticated) {
+      alert("Not authenticated with EventLink.");
+      return;
+    }
+
+    // For now, auto-select the first org
+    const organizationId = authJson.organizations[0].id;
+
+    const uploads = [];
+
+    for (const id of selectedIds) {
+      const r = results.find((x: any) => x.id === id);
+      if (!r) continue;
+
+      // Determine Melee format
+      const meleeFormat =
+        Array.isArray(r.metadata?.Formats) && r.metadata.Formats.length > 0
+          ? r.metadata.Formats[0]
+          : "Other";
+
+      // Match EventLink format
+      const eventFormat =
+        authJson.eventFormats.find(
+          (f: any) =>
+            f.name.toLowerCase() === meleeFormat.toLowerCase()
+        ) ||
+        authJson.eventFormats.find((f: any) => f.name === "Other");
+
+      const eventFormatId = eventFormat?.id;
+
+      const payload = {
+        organizationId,
+        eventFormatId,
+        metadata: r.metadata,
+        players: r.playerEmails.map((email: string) => ({
+          email,
+          firstName: "",
+          lastName: "",
+        })),
+        timeZone: "America/Chicago",
+      };
+
+      uploads.push(
+        fetch("/api/eventlink/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }).then((res) => res.json())
+      );
+    }
+
+    const resultsJson = await Promise.all(uploads);
+
+    console.log("Import results:", resultsJson);
+    alert("Upload complete. Check console for details.");
+  }
+
+  // -----------------------------
+  // Filtered list
+  // -----------------------------
+  const filtered = tournaments.filter((t) =>
+    t.Name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // -----------------------------
+  // Render
   // -----------------------------
   return (
-    <div style={{ padding: 20, maxWidth: 600 }}>
-      <h1>Melee.gg Tournament Browser</h1>
+    <div style={{ padding: 20 }}>
+      <h1>Melee Tournament Browser</h1>
 
-      {/* Date Range */}
-      <div style={{ marginTop: 20 }}>
-        <label>Start Date (optional)</label>
+      <div style={{ marginBottom: 20 }}>
         <input
-          type="date"
-          value={startDateInput}
-          onChange={(e) => setStartDateInput(e.target.value)}
-          style={{ display: "block", marginTop: 4, marginBottom: 12 }}
+          placeholder="Search tournaments..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ padding: 6, width: 250, marginRight: 10 }}
         />
 
-        <label>End Date (optional)</label>
         <input
           type="date"
-          value={endDateInput}
-          onChange={(e) => setEndDateInput(e.target.value)}
-          style={{ display: "block", marginTop: 4, marginBottom: 12 }}
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          style={{ marginRight: 10 }}
         />
 
-        <button
-          onClick={applyFilter}
-          style={{
-            marginTop: 8,
-            padding: "8px 12px",
-            background: "#333",
-            color: "#eee",
-            border: "1px solid #555",
-            borderRadius: 4,
-            cursor: "pointer",
-          }}
-        >
-          Update List
-        </button>
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          style={{ marginRight: 10 }}
+        />
+
+        <button onClick={loadTournaments}>Update List</button>
       </div>
 
-      {loading && <p style={{ marginTop: 20 }}>Loading…</p>}
-      {error && (
-        <p style={{ marginTop: 20, color: "red" }}>
-          Error loading tournaments: {error}
-        </p>
-      )}
-
-      {/* Search + Select All / Deselect All */}
-      <label style={{ marginTop: 20, display: "block", fontWeight: "bold" }}>
-        Select Tournaments
-      </label>
-
-      <input
-        type="text"
-        placeholder="Search tournaments..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "8px",
-          marginTop: "8px",
-          marginBottom: "12px",
-          borderRadius: "4px",
-          border: "1px solid #444",
-          background: "#1e1e1e",
-          color: "#eee",
-        }}
-      />
-
-      <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-        <button
-          onClick={selectAll}
-          style={{
-            padding: "6px 10px",
-            background: "#333",
-            color: "#eee",
-            border: "1px solid #555",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
+      <div style={{ marginBottom: 20 }}>
+        <button onClick={selectAll} style={{ marginRight: 10 }}>
           Select All
         </button>
+        <button onClick={deselectAll}>Deselect All</button>
+      </div>
 
-        <button
-          onClick={deselectAll}
-          style={{
-            padding: "6px 10px",
-            background: "#333",
-            color: "#eee",
-            border: "1px solid #555",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Deselect All
+      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+        <button onClick={validateSelected}>
+          Validate Selected Tournaments
+        </button>
+
+        <button onClick={uploadSelected}>
+          Upload Selected Tournaments to EventLink
         </button>
       </div>
 
-      {/* Checkbox list */}
-      <div
-        style={{
-          maxHeight: "400px",
-          overflowY: "auto",
-          border: "1px solid #444",
-          padding: "10px",
-          borderRadius: "6px",
-          marginTop: "8px",
-        }}
-      >
-        {tournaments
-          .filter((t) =>
-            t.Name.toLowerCase().includes(search.toLowerCase())
-          )
-          .map((t) => {
-            const checked = selectedIds.includes(t.ID);
+      {loading && <p>Loading...</p>}
 
-            return (
-              <div key={t.ID} style={{ marginBottom: "6px" }}>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleTournament(t.ID)}
-                  />
-                  {t.Name}
-                </label>
-              </div>
-            );
-          })}
-      </div>
-
-      {/* Validate Button */}
-      <button
-        onClick={validateSelected}
-        disabled={selectedIds.length === 0}
-        style={{
-          marginTop: 20,
-          padding: "10px 14px",
-          background: selectedIds.length === 0 ? "#555" : "#0066ff",
-          color: "#fff",
-          border: "none",
-          borderRadius: 4,
-          cursor: selectedIds.length === 0 ? "not-allowed" : "pointer",
-        }}
-      >
-        Validate Selected Tournaments
-      </button>
+      {filtered.map((t) => (
+        <div
+          key={t.ID}
+          style={{
+            padding: 10,
+            border: "1px solid #444",
+            borderRadius: 6,
+            marginBottom: 10,
+          }}
+        >
+          <label>
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(t.ID)}
+              onChange={() => toggleSelect(t.ID)}
+              style={{ marginRight: 8 }}
+            />
+            {t.Name}
+          </label>
+        </div>
+      ))}
     </div>
   );
 }
