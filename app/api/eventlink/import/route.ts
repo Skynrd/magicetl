@@ -4,58 +4,8 @@ const TOPDECK_API = "https://api.topdeck.gg/v2/eventlink/import";
 const TOPDECK_API_KEY = process.env.TOPDECK_API_KEY;
 
 // -----------------------------
-// Helpers
-// -----------------------------
-
-// Extracts "9:30 AM", "7pm", "12:15 pm", etc. from event name
-function extractEventTimeFromName(name: string): string | null {
-  if (!name) return null;
-
-  const timeRegex = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
-  const match = name.match(timeRegex);
-  if (!match) return null;
-
-  let hour = parseInt(match[1], 10);
-  const minute = match[2] ? parseInt(match[2], 10) : 0;
-  const ampm = match[3].toLowerCase();
-
-  if (ampm === "pm" && hour !== 12) hour += 12;
-  if (ampm === "am" && hour === 12) hour = 0;
-
-  return `${hour.toString().padStart(2, "0")}:${minute
-    .toString()
-    .padStart(2, "0")}`;
-}
-
-// Builds the EventLink startDate from LastPairDateTime + parsed time
-function buildEventStartDate(metadata: any): string {
-  const name = metadata?.Name || "";
-  const lastPair = metadata?.LastPairDateTime;
-
-  if (!lastPair) {
-    // fallback: today at 7am
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}T07:00:00`;
-  }
-
-  const date = new Date(lastPair);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-
-  const extracted = extractEventTimeFromName(name);
-  const time = extracted || "07:00";
-
-  return `${yyyy}-${mm}-${dd}T${time}:00`;
-}
-
-// -----------------------------
 // Route Handler
 // -----------------------------
-
 export async function POST(req: Request) {
   if (!TOPDECK_API_KEY) {
     return NextResponse.json(
@@ -75,41 +25,103 @@ export async function POST(req: Request) {
   }
 
   const {
+    existingEventId,
     organizationId,
     eventFormatId,
-    metadata,
-    players,
+    eventTitle,
+    eventDescription,
+    startDate,
     timeZone = "America/Chicago",
+    maxPlayers,
+    entryFeeAmount,
+    address,
+    latitude,
+    longitude,
+    isOnline,
+    players,
   } = body;
 
-  if (!organizationId || !eventFormatId || !metadata || !players) {
+  // -----------------------------
+  // Validation
+  // -----------------------------
+
+  // Existing event path
+  if (existingEventId) {
+    if (!players || !Array.isArray(players) || players.length === 0) {
+      return NextResponse.json(
+        { error: "players array is required and must be non-empty" },
+        { status: 400 }
+      );
+    }
+
+    const payload = {
+      existingEventId,
+      players: players.map((p: any) => ({
+        firstName: p.firstName || "",
+        lastName: p.lastName || "",
+        email: p.email || "",
+        wizardsEmail: p.wizardsEmail || undefined,
+      })),
+    };
+
+    return forwardToTopDeck(payload);
+  }
+
+  // New event path
+  if (!organizationId || !eventFormatId || !eventTitle || !startDate) {
     return NextResponse.json(
-      { error: "Missing required fields" },
+      {
+        error:
+          "organizationId, eventFormatId, eventTitle, and startDate are required when creating a new event",
+      },
       { status: 400 }
     );
   }
 
-  const startDate = buildEventStartDate(metadata);
+  if (!players || !Array.isArray(players) || players.length === 0) {
+    return NextResponse.json(
+      { error: "players array is required and must be non-empty" },
+      { status: 400 }
+    );
+  }
 
+  // -----------------------------
+  // Build final payload for TopDeck
+  // -----------------------------
   const payload = {
     organizationId,
     eventFormatId,
-    eventTitle: metadata.Name || "Imported Event",
+    eventTitle,
+    eventDescription: eventDescription || eventTitle,
     startDate,
     timeZone,
+    maxPlayers,
+    entryFeeAmount,
+    address,
+    latitude,
+    longitude,
+    isOnline,
     players: players.map((p: any) => ({
       firstName: p.firstName || "",
       lastName: p.lastName || "",
-      email: p.email || p.wizardsEmail || "",
+      email: p.email || "",
+      wizardsEmail: p.wizardsEmail || undefined,
     })),
   };
 
+  return forwardToTopDeck(payload);
+}
+
+// -----------------------------
+// Helper: Forward to TopDeck
+// -----------------------------
+async function forwardToTopDeck(payload: any) {
   try {
     const res = await fetch(TOPDECK_API, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Api-Key": TOPDECK_API_KEY,
+        "X-Api-Key": TOPDECK_API_KEY!,
       },
       body: JSON.stringify(payload),
     });
