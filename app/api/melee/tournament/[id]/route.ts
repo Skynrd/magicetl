@@ -4,10 +4,7 @@ const MELEE_API = "https://melee.gg/api";
 const MELEE_USERNAME = process.env.MELEE_USERNAME;
 const MELEE_PASSWORD = process.env.MELEE_PASSWORD;
 
-export async function GET(
-  _req: Request,
-  context: { params: { id: string } }
-) {
+export async function GET(_req: Request, context: any) {
   const { id } = context.params;
 
   if (!MELEE_USERNAME || !MELEE_PASSWORD) {
