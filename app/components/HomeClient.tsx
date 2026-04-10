@@ -19,6 +19,43 @@ export default function HomeClient() {
   >([]);
 
   // -----------------------------
+  // Helpers for startDate logic
+  // -----------------------------
+
+  function extractEventTimeFromName(name: string): string | null {
+    if (!name) return null;
+
+    const timeRegex = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
+    const match = name.match(timeRegex);
+    if (!match) return null;
+
+    let hour = parseInt(match[1], 10);
+    const minute = match[2] ? parseInt(match[2], 10) : 0;
+    const ampm = match[3].toLowerCase();
+
+    if (ampm === "pm" && hour !== 12) hour += 12;
+    if (ampm === "am" && hour === 12) hour = 0;
+
+    return `${hour.toString().padStart(2, "0")}:${minute
+      .toString()
+      .padStart(2, "0")}`;
+  }
+
+  function buildStartDate(metadata: any, eventName: string): string {
+    const lastPair = metadata?.LastPairDateTime;
+    const extracted = extractEventTimeFromName(eventName);
+
+    const date = lastPair ? new Date(lastPair) : new Date();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+
+    const time = extracted || "07:00";
+
+    return `${yyyy}-${mm}-${dd}T${time}:00`;
+  }
+
+  // -----------------------------
   // Load tournaments from API
   // -----------------------------
   async function loadTournaments() {
@@ -138,14 +175,7 @@ export default function HomeClient() {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const r = results.find((x: any) => x.id === id);
-      if (!r) {
-        setUploadProgress((prev) =>
-          prev.map((p) =>
-            p.id === id ? { ...p, status: "failed" } : p
-          )
-        );
-        continue;
-      }
+      if (!r) continue;
 
       const meleeFormat =
         Array.isArray(r.metadata?.Formats) && r.metadata.Formats.length > 0
@@ -162,9 +192,11 @@ export default function HomeClient() {
       const eventFormatId = eventFormat?.id;
 
       const eventTitle: string = r.metadata?.Name || "Melee Event";
-      const startDateIso: string =
-        r.metadata?.StartDate ||
-        new Date().toISOString();
+
+      // -----------------------------
+      // Correct startDate logic (Option A)
+      // -----------------------------
+      const startDateIso = buildStartDate(r.metadata, eventTitle);
 
       if (!eventFormatId || !organizationId || !r.playerEmails?.length) {
         setUploadProgress((prev) =>
