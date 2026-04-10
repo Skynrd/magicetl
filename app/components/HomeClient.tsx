@@ -182,21 +182,43 @@ export default function HomeClient() {
           placeholder="Search tournaments..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ padding: 6, width: 250, marginRight: 10 }}
+          style={{
+            padding: 6,
+            width: 250,
+            marginRight: 10,
+            border: "1px solid #444",
+            borderRadius: 4,
+            background: "#222",
+            color: "white",
+          }}
         />
 
         <input
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
-          style={{ marginRight: 10 }}
+          style={{
+            padding: 6,
+            marginRight: 10,
+            border: "1px solid #444",
+            borderRadius: 4,
+            background: "#222",
+            color: "white",
+          }}
         />
 
         <input
           type="date"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
-          style={{ marginRight: 10 }}
+          style={{
+            padding: 6,
+            marginRight: 10,
+            border: "1px solid #444",
+            borderRadius: 4,
+            background: "#222",
+            color: "white",
+          }}
         />
 
         <button onClick={loadTournaments}>Update List</button>
