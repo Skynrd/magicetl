@@ -84,7 +84,7 @@ export default function HomeClient() {
     setSelectedIds([]);
   };
 
-  // ⭐ NEW: Validate button handler
+  // ⭐ UPDATED VALIDATION LOGIC — uses /player/list/{id}
   const validateSelected = async () => {
     if (selectedIds.length === 0) return;
 
@@ -94,20 +94,32 @@ export default function HomeClient() {
       const results: any[] = [];
 
       for (const id of selectedIds) {
-        const res = await fetch(`https://melee.gg/api/tournament/${id}`, {
-          headers: {
-            Accept: "application/json",
-          },
+        // 1. Tournament metadata
+        const metaRes = await fetch(`https://melee.gg/api/tournament/${id}`, {
+          headers: { Accept: "application/json" },
         });
+        const metadata = await metaRes.json();
 
-        const json = await res.json();
-        results.push({ id, data: json });
+        // 2. Player list
+        const playersRes = await fetch(
+          `https://melee.gg/api/player/list/${id}`,
+          { headers: { Accept: "application/json" } }
+        );
+        const playersJson = await playersRes.json();
+
+        // Extract emails (WizardsAccountEmail preferred)
+        const playerEmails = (playersJson?.Content || [])
+          .map((p: any) => p.WizardsAccountEmail || p.Email || null)
+          .filter(Boolean);
+
+        results.push({
+          id,
+          metadata,
+          playerEmails,
+        });
       }
 
-      // Store results in sessionStorage for the /validate page
       sessionStorage.setItem("validationResults", JSON.stringify(results));
-
-      // Navigate to validation page
       router.push("/validate");
     } catch (err) {
       console.error("Validation error:", err);

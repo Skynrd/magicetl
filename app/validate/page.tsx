@@ -26,7 +26,20 @@ export default function ValidatePage() {
             borderRadius: 6,
           }}
         >
-          <h2>Tournament {r.id}</h2>
+          <h2>{r.metadata?.Name || `Tournament ${r.id}`}</h2>
+
+          <p><strong>Format:</strong> {r.metadata?.FormatName}</p>
+          <p><strong>Start:</strong> {r.metadata?.StartDate}</p>
+          <p><strong>Players Found:</strong> {r.playerEmails.length}</p>
+
+          <h3>Player Emails</h3>
+          <ul>
+            {r.playerEmails.map((email: string, idx: number) => (
+              <li key={idx}>{email}</li>
+            ))}
+          </ul>
+
+          <h3>Raw Metadata</h3>
           <pre
             style={{
               whiteSpace: "pre-wrap",
@@ -35,7 +48,7 @@ export default function ValidatePage() {
               borderRadius: 4,
             }}
           >
-            {JSON.stringify(r.data, null, 2)}
+            {JSON.stringify(r.metadata, null, 2)}
           </pre>
         </div>
       ))}
