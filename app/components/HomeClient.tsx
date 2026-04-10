@@ -77,9 +77,11 @@ export default function HomeClient() {
       const playersRes = await fetch(`/api/melee/player-list/${id}`);
       const playersJson = await playersRes.json();
 
+      // FIXED: Correct extraction of player emails
       const playerEmails =
-        playersJson?.Players?.map((p: any) => p.EmailAddress).filter(Boolean) ||
-        [];
+        (playersJson?.Content || [])
+          .map((p: any) => p.WizardsAccountEmail || p.Email || null)
+          .filter((email: string | null): email is string => Boolean(email));
 
       results.push({
         id,
