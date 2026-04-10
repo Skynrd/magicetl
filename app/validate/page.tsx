@@ -8,7 +8,11 @@ export default function ValidatePage() {
   useEffect(() => {
     const raw = sessionStorage.getItem("validationResults");
     if (raw) {
-      setResults(JSON.parse(raw));
+      try {
+        setResults(JSON.parse(raw));
+      } catch {
+        console.error("Invalid validationResults JSON");
+      }
     }
   }, []);
 
@@ -16,42 +20,63 @@ export default function ValidatePage() {
     <div style={{ padding: 20 }}>
       <h1>Validation Results</h1>
 
-      {results.map((r) => (
-        <div
-          key={r.id}
-          style={{
-            marginTop: 20,
-            padding: 12,
-            border: "1px solid #444",
-            borderRadius: 6,
-          }}
-        >
-          <h2>{r.metadata?.Name || `Tournament ${r.id}`}</h2>
+      {results.map((r) => {
+        const metadata = r.metadata || {};
 
-          <p><strong>Format:</strong> {r.metadata?.FormatName}</p>
-          <p><strong>Start:</strong> {r.metadata?.StartDate}</p>
-          <p><strong>Players Found:</strong> {r.playerEmails.length}</p>
+        // Format: first entry in Formats[] or "Other"
+        const format =
+          Array.isArray(metadata.Formats) && metadata.Formats.length > 0
+            ? metadata.Formats[0]
+            : "Other";
 
-          <h3>Player Emails</h3>
-          <ul>
-            {r.playerEmails.map((email: string, idx: number) => (
-              <li key={idx}>{email}</li>
-            ))}
-          </ul>
+        // Start date formatting
+        const startDate = metadata.StartDate
+          ? new Date(metadata.StartDate).toLocaleString()
+          : "";
 
-          <h3>Raw Metadata</h3>
-          <pre
+        return (
+          <div
+            key={r.id}
             style={{
-              whiteSpace: "pre-wrap",
-              background: "#111",
-              padding: 10,
-              borderRadius: 4,
+              marginTop: 20,
+              padding: 12,
+              border: "1px solid #444",
+              borderRadius: 6,
             }}
           >
-            {JSON.stringify(r.metadata, null, 2)}
-          </pre>
-        </div>
-      ))}
+            <h2>{metadata.Name || `Tournament ${r.id}`}</h2>
+
+            <p>
+              <strong>Format:</strong> {format}
+            </p>
+            <p>
+              <strong>Start:</strong> {startDate}
+            </p>
+            <p>
+              <strong>Players Found:</strong> {r.playerEmails.length}
+            </p>
+
+            <h3>Player Emails</h3>
+            <ul>
+              {r.playerEmails.map((email: string) => (
+                <li key={email}>{email}</li>
+              ))}
+            </ul>
+
+            <h3>Raw Metadata</h3>
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                background: "#111",
+                padding: 10,
+                borderRadius: 4,
+              }}
+            >
+              {JSON.stringify(metadata, null, 2)}
+            </pre>
+          </div>
+        );
+      })}
     </div>
   );
 }
