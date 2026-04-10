@@ -10,6 +10,12 @@ export default function HomeClient() {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // NEW: modal + progress state
+  const [showModal, setShowModal] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<
+    { id: number; name: string; status: "pending" | "success" | "failed" }[]
+  >([]);
+
   // -----------------------------
   // Load tournaments from API
   // -----------------------------
@@ -111,22 +117,31 @@ export default function HomeClient() {
       return;
     }
 
-    // For now, auto-select the first org
     const organizationId = authJson.organizations[0].id;
 
-    const uploads = [];
+    // Initialize modal + progress
+    const initialProgress = selectedIds.map((id) => {
+      const t = tournaments.find((x) => x.ID === id);
+      return {
+        id,
+        name: t?.Name || `Tournament ${id}`,
+        status: "pending" as const,
+      };
+    });
 
+    setUploadProgress(initialProgress);
+    setShowModal(true);
+
+    // Upload one-by-one so progress updates cleanly
     for (const id of selectedIds) {
       const r = results.find((x: any) => x.id === id);
       if (!r) continue;
 
-      // Determine Melee format
       const meleeFormat =
         Array.isArray(r.metadata?.Formats) && r.metadata.Formats.length > 0
           ? r.metadata.Formats[0]
           : "Other";
 
-      // Match EventLink format
       const eventFormat =
         authJson.eventFormats.find(
           (f: any) =>
@@ -148,19 +163,30 @@ export default function HomeClient() {
         timeZone: "America/Chicago",
       };
 
-      uploads.push(
-        fetch("/api/eventlink/import", {
+      try {
+        const res = await fetch("/api/eventlink/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        }).then((res) => res.json())
-      );
+        });
+
+        const json = await res.json();
+
+        setUploadProgress((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? { ...p, status: res.ok ? "success" : "failed" }
+              : p
+          )
+        );
+      } catch (err) {
+        setUploadProgress((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, status: "failed" } : p
+          )
+        );
+      }
     }
-
-    const resultsJson = await Promise.all(uploads);
-
-    console.log("Import results:", resultsJson);
-    alert("Upload complete. Check console for details.");
   }
 
   // -----------------------------
@@ -340,6 +366,81 @@ export default function HomeClient() {
       </button>
 
       {loading && <p style={{ marginTop: 20 }}>Loading...</p>}
+
+      {/* -----------------------------
+          Upload Progress Modal
+      ------------------------------ */}
+      {showModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#222",
+              padding: 20,
+              borderRadius: 8,
+              width: "90%",
+              maxWidth: 500,
+              color: "white",
+            }}
+          >
+            <h2>Uploading to EventLink…</h2>
+
+            {uploadProgress.map((p) => (
+              <div
+                key={p.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "6px 0",
+                  borderBottom: "1px solid #444",
+                }}
+              >
+                <span>{p.name}</span>
+                <span
+                  style={{
+                    color:
+                      p.status === "pending"
+                        ? "#ccc"
+                        : p.status === "success"
+                        ? "#00ff88"
+                        : "#ff4444",
+                  }}
+                >
+                  {p.status}
+                </span>
+              </div>
+            ))}
+
+            <button
+              onClick={() => setShowModal(false)}
+              style={{
+                marginTop: 20,
+                padding: "8px 12px",
+                background: "#444",
+                color: "white",
+                border: "1px solid #666",
+                borderRadius: 4,
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
