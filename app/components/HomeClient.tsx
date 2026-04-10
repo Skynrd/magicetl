@@ -174,9 +174,10 @@ export default function HomeClient() {
   // Render
   // -----------------------------
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, maxWidth: 600 }}>
       <h1>Melee Tournament Browser</h1>
 
+      {/* Search + Date Range */}
       <div style={{ marginBottom: 20 }}>
         <input
           placeholder="Search tournaments..."
@@ -184,8 +185,8 @@ export default function HomeClient() {
           onChange={(e) => setSearch(e.target.value)}
           style={{
             padding: 6,
-            width: 250,
-            marginRight: 10,
+            width: "100%",
+            marginBottom: 10,
             border: "1px solid #444",
             borderRadius: 4,
             background: "#222",
@@ -193,13 +194,15 @@ export default function HomeClient() {
           }}
         />
 
+        <label>Start Date</label>
         <input
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
           style={{
             padding: 6,
-            marginRight: 10,
+            width: "100%",
+            marginBottom: 10,
             border: "1px solid #444",
             borderRadius: 4,
             background: "#222",
@@ -207,13 +210,15 @@ export default function HomeClient() {
           }}
         />
 
+        <label>End Date</label>
         <input
           type="date"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
           style={{
             padding: 6,
-            marginRight: 10,
+            width: "100%",
+            marginBottom: 10,
             border: "1px solid #444",
             borderRadius: 4,
             background: "#222",
@@ -221,49 +226,120 @@ export default function HomeClient() {
           }}
         />
 
-        <button onClick={loadTournaments}>Update List</button>
-      </div>
-
-      <div style={{ marginBottom: 20 }}>
-        <button onClick={selectAll} style={{ marginRight: 10 }}>
-          Select All
-        </button>
-        <button onClick={deselectAll}>Deselect All</button>
-      </div>
-
-      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-        <button onClick={validateSelected}>
-          Validate Selected Tournaments
-        </button>
-
-        <button onClick={uploadSelected}>
-          Upload Selected Tournaments to EventLink
-        </button>
-      </div>
-
-      {loading && <p>Loading...</p>}
-
-      {filtered.map((t) => (
-        <div
-          key={t.ID}
+        <button
+          onClick={loadTournaments}
           style={{
-            padding: 10,
-            border: "1px solid #444",
-            borderRadius: 6,
-            marginBottom: 10,
+            padding: "8px 12px",
+            background: "#333",
+            color: "#eee",
+            border: "1px solid #555",
+            borderRadius: 4,
+            cursor: "pointer",
+            marginTop: 5,
           }}
         >
-          <label>
-            <input
-              type="checkbox"
-              checked={selectedIds.includes(t.ID)}
-              onChange={() => toggleSelect(t.ID)}
-              style={{ marginRight: 8 }}
-            />
-            {t.Name}
-          </label>
-        </div>
-      ))}
+          Update List
+        </button>
+      </div>
+
+      {/* Select All / Deselect All */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        <button
+          onClick={selectAll}
+          style={{
+            padding: "6px 10px",
+            background: "#333",
+            color: "#eee",
+            border: "1px solid #555",
+            borderRadius: 4,
+            cursor: "pointer",
+          }}
+        >
+          Select All
+        </button>
+
+        <button
+          onClick={deselectAll}
+          style={{
+            padding: "6px 10px",
+            background: "#333",
+            color: "#eee",
+            border: "1px solid #555",
+            borderRadius: 4,
+            cursor: "pointer",
+          }}
+        >
+          Deselect All
+        </button>
+      </div>
+
+      {/* Scrollable tournament list */}
+      <div
+        style={{
+          maxHeight: "400px",
+          overflowY: "auto",
+          border: "1px solid #444",
+          padding: 10,
+          borderRadius: 6,
+          marginBottom: 20,
+        }}
+      >
+        {filtered.map((t) => (
+          <div key={t.ID} style={{ marginBottom: 6 }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(t.ID)}
+                onChange={() => toggleSelect(t.ID)}
+              />
+              {t.Name}
+            </label>
+          </div>
+        ))}
+      </div>
+
+      {/* Buttons */}
+      <button
+        onClick={validateSelected}
+        disabled={selectedIds.length === 0}
+        style={{
+          padding: "10px 14px",
+          background: selectedIds.length === 0 ? "#555" : "#0066ff",
+          color: "#fff",
+          border: "none",
+          borderRadius: 4,
+          cursor: selectedIds.length === 0 ? "not-allowed" : "pointer",
+          marginBottom: 10,
+          width: "100%",
+        }}
+      >
+        Validate Selected Tournaments
+      </button>
+
+      <button
+        onClick={uploadSelected}
+        disabled={selectedIds.length === 0}
+        style={{
+          padding: "10px 14px",
+          background: selectedIds.length === 0 ? "#555" : "#00aa55",
+          color: "#fff",
+          border: "none",
+          borderRadius: 4,
+          cursor: selectedIds.length === 0 ? "not-allowed" : "pointer",
+          width: "100%",
+        }}
+      >
+        Upload Selected Tournaments to EventLink
+      </button>
+
+      {loading && <p style={{ marginTop: 20 }}>Loading...</p>}
     </div>
   );
-} //force redeploy
+}
