@@ -196,6 +196,7 @@ export default function HomeClient() {
       // -----------------------------
       // Correct startDate logic (Option A)
       // -----------------------------
+      console.log("UPLOAD metadata:", r.metadata);
       const startDateIso = buildStartDate(r.metadata, eventTitle);
 
       if (!eventFormatId || !organizationId || !r.playerEmails?.length) {
