@@ -77,7 +77,6 @@ export default function HomeClient() {
       const playersRes = await fetch(`/api/melee/player-list/${id}`);
       const playersJson = await playersRes.json();
 
-      // FIXED: Correct extraction of player emails
       const playerEmails =
         (playersJson?.Content || [])
           .map((p: any) => p.WizardsAccountEmail || p.Email || null)
@@ -155,10 +154,19 @@ export default function HomeClient() {
 
       const eventFormatId = eventFormat?.id;
 
+      // -----------------------------
+      // SANITIZED METADATA
+      // -----------------------------
+      const sanitizedMetadata = {
+        name: r.metadata?.Name || "",
+        startDate: r.metadata?.StartDate || null,
+        format: meleeFormat,
+      };
+
       const payload = {
         organizationId,
         eventFormatId,
-        metadata: r.metadata,
+        metadata: sanitizedMetadata,
         players: r.playerEmails.map((email: string) => ({
           email,
           firstName: "",
