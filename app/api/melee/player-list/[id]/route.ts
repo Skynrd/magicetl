@@ -4,12 +4,11 @@ const MELEE_API = "https://melee.gg/api";
 const MELEE_USERNAME = process.env.MELEE_USERNAME;
 const MELEE_PASSWORD = process.env.MELEE_PASSWORD;
 
-type RouteParams = {
-  params: { id: string };
-};
-
-export async function GET(_req: Request, { params }: RouteParams) {
-  const { id } = params;
+export async function GET(
+  _req: Request,
+  context: { params: { id: string } }
+) {
+  const { id } = context.params;
 
   if (!MELEE_USERNAME || !MELEE_PASSWORD) {
     return NextResponse.json(
@@ -18,7 +17,6 @@ export async function GET(_req: Request, { params }: RouteParams) {
     );
   }
 
-  // Build Basic Auth header exactly like your working curl
   const token = Buffer.from(`${MELEE_USERNAME}:${MELEE_PASSWORD}`).toString(
     "base64"
   );
