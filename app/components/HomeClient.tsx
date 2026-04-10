@@ -3,23 +3,42 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Tournament = {
+// -----------------------------
+// Types
+// -----------------------------
+export type Tournament = {
   ID: number;
   Name: string;
   LastPairDateTime?: string;
+  FormatName?: string;
+  StartDate?: string;
 };
 
+export type Player = {
+  WizardsAccountEmail?: string | null;
+  Email?: string | null;
+};
+
+export type ValidationResult = {
+  id: number;
+  metadata: Tournament | null;
+  playerEmails: string[];
+};
+
+// -----------------------------
+// Component
+// -----------------------------
 export default function HomeClient() {
   const router = useRouter();
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const [startDateInput, setStartDateInput] = useState("");
-  const [endDateInput, setEndDateInput] = useState("");
+  const [startDateInput, setStartDateInput] = useState<string>("");
+  const [endDateInput, setEndDateInput] = useState<string>("");
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   // Load full list on mount
@@ -27,6 +46,9 @@ export default function HomeClient() {
     fetchTournaments();
   }, []);
 
+  // -----------------------------
+  // Fetch tournaments
+  // -----------------------------
   const fetchTournaments = async (start?: string, end?: string) => {
     try {
       setLoading(true);
@@ -44,16 +66,22 @@ export default function HomeClient() {
         throw new Error(`API error: ${res.status} — ${body}`);
       }
 
-      const data = await res.json();
+      const data: { Content: Tournament[] } = await res.json();
+
       if (!Array.isArray(data.Content)) {
         throw new Error("Unexpected API response shape");
       }
 
-      setTournaments(data.Content);
+      // Filter out malformed tournaments
+      const cleaned: Tournament[] = data.Content.filter(
+        (t: Tournament) => typeof t.ID === "number" && t.ID > 0
+      );
 
-      // Remove selected IDs that no longer exist
+      setTournaments(cleaned);
+
+      // Clean up selected IDs
       setSelectedIds((prev) =>
-        prev.filter((id) => data.Content.some((t: Tournament) => t.ID === id))
+        prev.filter((id) => cleaned.some((t) => t.ID === id))
       );
     } catch (err: any) {
       console.error("Tournament fetch error:", err);
@@ -63,13 +91,20 @@ export default function HomeClient() {
     }
   };
 
+  // -----------------------------
+  // Apply date filter
+  // -----------------------------
   const applyFilter = () => {
     const start = startDateInput ? `${startDateInput}T00:00:00Z` : undefined;
     const end = endDateInput ? `${endDateInput}T00:00:00Z` : undefined;
     fetchTournaments(start, end);
   };
 
+  // -----------------------------
+  // Selection logic
+  // -----------------------------
   const toggleTournament = (id: number) => {
+    if (typeof id !== "number") return;
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
@@ -84,31 +119,35 @@ export default function HomeClient() {
     setSelectedIds([]);
   };
 
-  // ⭐ VALIDATION USING SERVER-SIDE PROXIES
+  // -----------------------------
+  // Validation logic
+  // -----------------------------
   const validateSelected = async () => {
     if (selectedIds.length === 0) return;
 
     setLoading(true);
 
     try {
-      const results: any[] = [];
+      const results: ValidationResult[] = [];
 
       for (const id of selectedIds) {
-        // 1. Tournament metadata via your API
+        if (typeof id !== "number") continue;
+
+        // Tournament metadata
         const metaRes = await fetch(`/api/melee/tournament/${id}`, {
           headers: { Accept: "application/json" },
         });
-        const metadata = await metaRes.json();
+        const metadata: Tournament | null = await metaRes.json();
 
-        // 2. Player list via your API
+        // Player list
         const playersRes = await fetch(`/api/melee/player-list/${id}`, {
           headers: { Accept: "application/json" },
         });
-        const playersJson = await playersRes.json();
+        const playersJson: { Content?: Player[] } = await playersRes.json();
 
-        const playerEmails = (playersJson?.Content || [])
-          .map((p: any) => p.WizardsAccountEmail || p.Email || null)
-          .filter(Boolean);
+        const playerEmails: string[] = (playersJson.Content || [])
+          .map((p: Player) => p.WizardsAccountEmail || p.Email || null)
+          .filter((email): email is string => Boolean(email));
 
         results.push({
           id,
@@ -127,6 +166,9 @@ export default function HomeClient() {
     }
   };
 
+  // -----------------------------
+  // UI
+  // -----------------------------
   return (
     <div style={{ padding: 20, maxWidth: 600 }}>
       <h1>Melee.gg Tournament Browser</h1>
