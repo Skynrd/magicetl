@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function HomeClient() {
+  const router = useRouter();
+
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [search, setSearch] = useState("");
@@ -88,7 +91,7 @@ export default function HomeClient() {
     sessionStorage.setItem("validationResults", JSON.stringify(results));
     setLoading(false);
 
-    alert("Validation complete. Go to /validate to view results.");
+    router.push("/validate");
   }
 
   // -----------------------------
@@ -118,7 +121,6 @@ export default function HomeClient() {
 
     const organizationId = authJson.organizations[0].id;
 
-    // Initialize modal + progress
     const initialProgress = selectedIds.map((id) => {
       const t = tournaments.find((x: any) => x.ID === id);
       return {
@@ -131,9 +133,8 @@ export default function HomeClient() {
     setUploadProgress(initialProgress);
     setShowModal(true);
 
-    // Upload one-by-one with a yield so React doesn't freeze
     for (const id of selectedIds) {
-      await new Promise((resolve) => setTimeout(resolve, 50)); // allow UI to update
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       const r = results.find((x: any) => x.id === id);
       if (!r) continue;
