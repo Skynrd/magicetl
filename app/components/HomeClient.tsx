@@ -10,7 +10,6 @@ export default function HomeClient() {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // NEW: modal + progress state
   const [showModal, setShowModal] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<
     { id: number; name: string; status: "pending" | "success" | "failed" }[]
@@ -23,13 +22,15 @@ export default function HomeClient() {
     setLoading(true);
 
     const params = new URLSearchParams();
-    if (startDate) params.set("startDate", startDate);
-    if (endDate) params.set("endDate", endDate);
+    if (startDate) params.set("startDateFrom", `${startDate}T00:00:00Z`);
+    if (endDate) params.set("startDateTo", `${endDate}T00:00:00Z`);
 
-    const res = await fetch(`/api/melee/list?${params.toString()}`);
+    const res = await fetch(`/api/melee/tournaments?${params.toString()}`);
     const json = await res.json();
 
-    setTournaments(json || []);
+    // Expecting { Content: [...] }
+    const list = Array.isArray(json?.Content) ? json.Content : [];
+    setTournaments(list);
     setLoading(false);
   }
 
@@ -47,7 +48,7 @@ export default function HomeClient() {
   }
 
   function selectAll() {
-    setSelectedIds(tournaments.map((t) => t.ID));
+    setSelectedIds(tournaments.map((t: any) => t.ID));
   }
 
   function deselectAll() {
@@ -108,7 +109,6 @@ export default function HomeClient() {
 
     const results = JSON.parse(raw);
 
-    // Load EventLink auth info
     const authRes = await fetch("/api/eventlink/check-auth");
     const authJson = await authRes.json();
 
@@ -119,9 +119,8 @@ export default function HomeClient() {
 
     const organizationId = authJson.organizations[0].id;
 
-    // Initialize modal + progress
     const initialProgress = selectedIds.map((id) => {
-      const t = tournaments.find((x) => x.ID === id);
+      const t = tournaments.find((x: any) => x.ID === id);
       return {
         id,
         name: t?.Name || `Tournament ${id}`,
@@ -132,7 +131,6 @@ export default function HomeClient() {
     setUploadProgress(initialProgress);
     setShowModal(true);
 
-    // Upload one-by-one so progress updates cleanly
     for (const id of selectedIds) {
       const r = results.find((x: any) => x.id === id);
       if (!r) continue;
@@ -170,7 +168,7 @@ export default function HomeClient() {
           body: JSON.stringify(payload),
         });
 
-        const json = await res.json();
+        await res.json().catch(() => null);
 
         setUploadProgress((prev) =>
           prev.map((p) =>
@@ -179,7 +177,7 @@ export default function HomeClient() {
               : p
           )
         );
-      } catch (err) {
+      } catch {
         setUploadProgress((prev) =>
           prev.map((p) =>
             p.id === id ? { ...p, status: "failed" } : p
@@ -192,7 +190,7 @@ export default function HomeClient() {
   // -----------------------------
   // Filtered list
   // -----------------------------
-  const filtered = tournaments.filter((t) =>
+  const filtered = tournaments.filter((t: any) =>
     t.Name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -310,7 +308,7 @@ export default function HomeClient() {
           marginBottom: 20,
         }}
       >
-        {filtered.map((t) => (
+        {filtered.map((t: any) => (
           <div key={t.ID} style={{ marginBottom: 6 }}>
             <label
               style={{
@@ -367,9 +365,7 @@ export default function HomeClient() {
 
       {loading && <p style={{ marginTop: 20 }}>Loading...</p>}
 
-      {/* -----------------------------
-          Upload Progress Modal
-      ------------------------------ */}
+      {/* Upload Progress Modal */}
       {showModal && (
         <div
           style={{
