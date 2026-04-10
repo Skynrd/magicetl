@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const TOPDECK_API = "https://api.topdeck.gg/v2/eventlink/import";
+const TOPDECK_API = "https://topdeck.gg/api/v2/eventlink/import";
 const TOPDECK_API_KEY = process.env.TOPDECK_API_KEY;
 
 // -----------------------------
