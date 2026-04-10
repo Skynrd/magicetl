@@ -138,7 +138,14 @@ export default function HomeClient() {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const r = results.find((x: any) => x.id === id);
-      if (!r) continue;
+      if (!r) {
+        setUploadProgress((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, status: "failed" } : p
+          )
+        );
+        continue;
+      }
 
       const meleeFormat =
         Array.isArray(r.metadata?.Formats) && r.metadata.Formats.length > 0
@@ -154,25 +161,34 @@ export default function HomeClient() {
 
       const eventFormatId = eventFormat?.id;
 
-      // -----------------------------
-      // SANITIZED METADATA
-      // -----------------------------
-      const sanitizedMetadata = {
-        name: r.metadata?.Name || "",
-        startDate: r.metadata?.StartDate || null,
-        format: meleeFormat,
-      };
+      const eventTitle: string = r.metadata?.Name || "Melee Event";
+      const startDateIso: string =
+        r.metadata?.StartDate ||
+        new Date().toISOString();
+
+      if (!eventFormatId || !organizationId || !r.playerEmails?.length) {
+        setUploadProgress((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, status: "failed" } : p
+          )
+        );
+        continue;
+      }
+
+      const players = r.playerEmails.map((email: string) => ({
+        email,
+        firstName: "",
+        lastName: "",
+      }));
 
       const payload = {
         organizationId,
         eventFormatId,
-        metadata: sanitizedMetadata,
-        players: r.playerEmails.map((email: string) => ({
-          email,
-          firstName: "",
-          lastName: "",
-        })),
+        eventTitle,
+        eventDescription: eventTitle,
+        startDate: startDateIso,
         timeZone: "America/Chicago",
+        players,
       };
 
       try {
