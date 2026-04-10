@@ -16,6 +16,8 @@ export default function HomeClient() {
     { id: number; name: string; status: "pending" | "success" | "failed" }[]
   >([]);
 
+  const [tryInvalid, setTryInvalid] = useState(false);
+
   // -----------------------------
   // Helpers for startDate logic
   // -----------------------------
@@ -51,6 +53,34 @@ export default function HomeClient() {
     const time = extracted || "07:00";
 
     return `${yyyy}-${mm}-${dd}T${time}:00`;
+  }
+
+  // -----------------------------
+  // Retry wrapper for TopDeck
+  // -----------------------------
+  async function topdeckFetchWithRetry(url: string, payload: any, maxRetries = 5) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) return res;
+
+      if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get("Retry-After") || "5", 10);
+        console.warn(`Rate limited. Waiting ${retryAfter} seconds before retry...`);
+        await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+        continue;
+      }
+
+      const backoff = attempt * 1000;
+      console.warn(`Request failed (attempt ${attempt}). Retrying in ${backoff}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, backoff));
+    }
+
+    throw new Error("TopDeck request failed after retries");
   }
 
   // -----------------------------
@@ -103,6 +133,18 @@ export default function HomeClient() {
 
     setLoading(true);
 
+    // Fetch existing EventLink events once
+    let existingEvents: any[] = [];
+    try {
+      const existingRes = await fetch("/api/eventlink/my-events");
+      const existingJson = await existingRes.json();
+      existingEvents = Array.isArray(existingJson?.events)
+        ? existingJson.events
+        : [];
+    } catch {
+      existingEvents = [];
+    }
+
     const results = [];
 
     for (const id of selectedIds) {
@@ -117,10 +159,17 @@ export default function HomeClient() {
           .map((p: any) => p.WizardsAccountEmail || p.Email || null)
           .filter((email: string | null): email is string => Boolean(email));
 
+      const eventTitle: string = metadata?.Name || "Melee Event";
+
+      const existingMatch = existingEvents.find(
+        (e: any) => e.title === eventTitle
+      );
+
       results.push({
         id,
         metadata,
         playerEmails,
+        existingEventId: existingMatch?.id || null,
       });
     }
 
@@ -170,6 +219,19 @@ export default function HomeClient() {
       const r = validationResults.find((x: any) => x.id === id);
       if (!r) continue;
 
+      const isInvalid =
+        !r.metadata?.LastPairDateTime || r.playerEmails.length === 0;
+
+      // Skip invalid tournaments unless tryInvalid is checked
+      if (isInvalid && !tryInvalid) {
+        setUploadProgress((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, status: "failed" } : p
+          )
+        );
+        continue;
+      }
+
       const meleeFormat =
         Array.isArray(r.metadata?.Formats) && r.metadata.Formats.length > 0
           ? r.metadata.Formats[0]
@@ -187,39 +249,35 @@ export default function HomeClient() {
 
       const startDateIso = buildStartDate(r.metadata, eventTitle);
 
-      if (!eventFormatId || !organizationId || !r.playerEmails?.length) {
-        setUploadProgress((prev) =>
-          prev.map((p) =>
-            p.id === id ? { ...p, status: "failed" } : p
-          )
-        );
-        continue;
-      }
-
       const players = r.playerEmails.map((email: string) => ({
         email,
         firstName: "",
         lastName: "",
       }));
 
-      const payload = {
-        organizationId,
-        eventFormatId,
-        eventTitle,
-        eventDescription: eventTitle,
-        startDate: startDateIso,
-        timeZone: "America/Chicago",
-        players,
-      };
+      let payload: any;
+
+      if (r.existingEventId) {
+        // Update existing event
+        payload = {
+          existingEventId: r.existingEventId,
+          players,
+        };
+      } else {
+        // Create new event
+        payload = {
+          organizationId,
+          eventFormatId,
+          eventTitle,
+          eventDescription: eventTitle,
+          startDate: startDateIso,
+          timeZone: "America/Chicago",
+          players,
+        };
+      }
 
       try {
-        const res = await fetch("/api/eventlink/import", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        await res.json().catch(() => null);
+        const res = await topdeckFetchWithRetry("/api/eventlink/import", payload);
 
         setUploadProgress((prev) =>
           prev.map((p) =>
@@ -320,35 +378,46 @@ export default function HomeClient() {
             </button>
           </div>
 
-          {/* Select All / Deselect All */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-            <button
-              onClick={selectAll}
-              style={{
-                padding: "6px 10px",
-                background: "#333",
-                color: "#eee",
-                border: "1px solid #555",
-                borderRadius: 4,
-                cursor: "pointer",
-              }}
-            >
-              Select All
-            </button>
+          {/* Select All / Deselect All + TryInvalid */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={selectAll}
+                style={{
+                  padding: "6px 10px",
+                  background: "#333",
+                  color: "#eee",
+                  border: "1px solid #555",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                Select All
+              </button>
 
-            <button
-              onClick={deselectAll}
-              style={{
-                padding: "6px 10px",
-                background: "#333",
-                color: "#eee",
-                border: "1px solid #555",
-                borderRadius: 4,
-                cursor: "pointer",
-              }}
-            >
-              Deselect All
-            </button>
+              <button
+                onClick={deselectAll}
+                style={{
+                  padding: "6px 10px",
+                  background: "#333",
+                  color: "#eee",
+                  border: "1px solid #555",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                Deselect All
+              </button>
+            </div>
+
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={tryInvalid}
+                onChange={(e) => setTryInvalid(e.target.checked)}
+              />
+              Try to upload invalid tournaments
+            </label>
           </div>
 
           {/* Tournament List */}
@@ -362,25 +431,70 @@ export default function HomeClient() {
               marginBottom: 20,
             }}
           >
-            {filtered.map((t: any) => (
-              <div key={t.ID} style={{ marginBottom: 6 }}>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(t.ID)}
-                    onChange={() => toggleSelect(t.ID)}
-                  />
-                  {t.Name}
-                </label>
-              </div>
-            ))}
+            {filtered.map((t: any) => {
+              const validation = validationResults.find((v) => v.id === t.ID);
+
+              let isInvalid = false;
+              let isExisting = false;
+              let isValidGreen = false;
+              const reasons: string[] = [];
+
+              if (validation) {
+                if (!validation.metadata?.LastPairDateTime) {
+                  isInvalid = true;
+                  reasons.push("Missing LastPairDateTime");
+                }
+                if (validation.playerEmails.length === 0) {
+                  isInvalid = true;
+                  reasons.push("No players found");
+                }
+                if (validation.existingEventId) {
+                  isExisting = true;
+                  reasons.push("Event already exists — update player list?");
+                }
+
+                if (!isInvalid && !isExisting) {
+                  isValidGreen = true;
+                  reasons.push("Ready to create");
+                }
+              }
+
+              const color = isInvalid
+                ? "#ff5555"      // red
+                : isExisting
+                ? "#ffaa33"      // orange
+                : isValidGreen
+                ? "#55ff55"      // green
+                : "white";
+
+              return (
+                <div key={t.ID} style={{ marginBottom: 10 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      cursor: "pointer",
+                      color,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(t.ID)}
+                        onChange={() => toggleSelect(t.ID)}
+                      />
+                      {t.Name}
+                    </div>
+
+                    {reasons.length > 0 && (
+                      <div style={{ fontSize: 12, color: "#bbbbbb", marginLeft: 24 }}>
+                        ({reasons.join("; ")})
+                      </div>
+                    )}
+                  </label>
+                </div>
+              );
+            })}
           </div>
 
           {/* Buttons */}
@@ -446,7 +560,14 @@ export default function HomeClient() {
               <div style={{ fontSize: 14, opacity: 0.8 }}>
                 <div><strong>ID:</strong> {r.id}</div>
                 <div><strong>Format:</strong> {r.metadata?.Formats?.join(", ")}</div>
-                <div><strong>Last Pair:</strong> {r.metadata?.LastPairDateTime}</div>
+                <div>
+                  <strong>Last Pair:</strong>{" "}
+                  {r.metadata?.LastPairDateTime || "Missing"}
+                </div>
+                <div>
+                  <strong>Existing Event:</strong>{" "}
+                  {r.existingEventId ? r.existingEventId : "None"}
+                </div>
               </div>
 
               <div style={{ marginTop: 10 }}>
