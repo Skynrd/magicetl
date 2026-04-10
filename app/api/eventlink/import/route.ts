@@ -121,7 +121,7 @@ async function forwardToTopDeck(payload: any) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Api-Key": TOPDECK_API_KEY!,
+        "Authorization": TOPDECK_API_KEY!,
       },
       body: JSON.stringify(payload),
     });
