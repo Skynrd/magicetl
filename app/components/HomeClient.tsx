@@ -84,7 +84,7 @@ export default function HomeClient() {
     setSelectedIds([]);
   };
 
-  // ⭐ UPDATED VALIDATION LOGIC — uses /player/list/{id}
+  // ⭐ VALIDATION USING SERVER-SIDE PROXIES
   const validateSelected = async () => {
     if (selectedIds.length === 0) return;
 
@@ -94,20 +94,18 @@ export default function HomeClient() {
       const results: any[] = [];
 
       for (const id of selectedIds) {
-        // 1. Tournament metadata
-        const metaRes = await fetch(`https://melee.gg/api/tournament/${id}`, {
+        // 1. Tournament metadata via your API
+        const metaRes = await fetch(`/api/melee/tournament/${id}`, {
           headers: { Accept: "application/json" },
         });
         const metadata = await metaRes.json();
 
-        // 2. Player list
-        const playersRes = await fetch(
-          `https://melee.gg/api/player/list/${id}`,
-          { headers: { Accept: "application/json" } }
-        );
+        // 2. Player list via your API
+        const playersRes = await fetch(`/api/melee/player-list/${id}`, {
+          headers: { Accept: "application/json" },
+        });
         const playersJson = await playersRes.json();
 
-        // Extract emails (WizardsAccountEmail preferred)
         const playerEmails = (playersJson?.Content || [])
           .map((p: any) => p.WizardsAccountEmail || p.Email || null)
           .filter(Boolean);

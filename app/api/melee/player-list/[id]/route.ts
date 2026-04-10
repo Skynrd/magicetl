@@ -18,12 +18,13 @@ export async function GET(_req: Request, { params }: RouteParams) {
     );
   }
 
+  // Build Basic Auth header exactly like your working curl
   const token = Buffer.from(`${MELEE_USERNAME}:${MELEE_PASSWORD}`).toString(
     "base64"
   );
 
   try {
-    const res = await fetch(`${MELEE_API}/tournament/${id}`, {
+    const res = await fetch(`${MELEE_API}/player/list/${id}`, {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -35,9 +36,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
     const json = await res.json();
     return NextResponse.json(json, { status: res.status });
   } catch (err) {
-    console.error("melee tournament detail error:", err);
+    console.error("melee player list error:", err);
     return NextResponse.json(
-      { error: "Failed to reach melee tournament endpoint" },
+      { error: "Failed to reach melee player list endpoint" },
       { status: 500 }
     );
   }
