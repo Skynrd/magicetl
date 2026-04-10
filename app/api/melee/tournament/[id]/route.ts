@@ -5,7 +5,14 @@ const MELEE_USERNAME = process.env.MELEE_USERNAME;
 const MELEE_PASSWORD = process.env.MELEE_PASSWORD;
 
 export async function GET(_req: Request, context: any) {
-  const { id } = context.params;
+  const id = context?.params?.id;
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Missing tournament ID in route params" },
+      { status: 400 }
+    );
+  }
 
   if (!MELEE_USERNAME || !MELEE_PASSWORD) {
     return NextResponse.json(
